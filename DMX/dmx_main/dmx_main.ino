@@ -7,7 +7,7 @@
 #define DMX_PIN 2
 #define RTS_PIN 3
 
-#define NUM_FIXTURES 10
+#define NUM_FIXTURES 2
 
 int loop_delay = 10;
 
@@ -31,9 +31,6 @@ void set_dmx_rgb(int channel_base, const Colour& colour) {
   DmxSimple.write(channel_base + 2, colour.b);
 }
 
-MenuItem* current_menu_item;
-
-
 Colour red (255, 0, 0);
 Colour low_red (128, 0, 0);
 Colour blue (0, 0, 255);
@@ -44,24 +41,9 @@ Colour yellow (255, 255, 0);
 Colour magenta (255, 0, 255);
 Colour cyan (0, 255, 255);
 
-FadeSequence slow_colour_cycle;
 
-FadeSequence segment_change;
-FadeSequence segment0;
-FadeSequence segment1;
-FadeSequence segment2;
-FadeSequence segment3;
-FadeSequence segment4;
-FadeSequence segment5;
-FadeSequence segment6;
-FadeSequence segment7;
-FadeSequence segment8;
-
-MultiFade lamp_cycle;
-
-// Fixtures (implement Fadeable interface)
-// Assumed to be dynamically allocated objects since delete will be used on them
 Fadeable* fixtures[NUM_FIXTURES];
+int fixture_ids[NUM_FIXTURES] = {1, 4};
 
 
 void setup() {
@@ -88,56 +70,68 @@ void setup() {
   slow_colour_cycle->add(green, 60000);
   slow_colour_cycle->start(millis());
   
-  fixtures[1] = slow_colour_cycle;
+  fixtures[0] = slow_colour_cycle;
   
+  MultiFade* lamp_cycle = new MultiFade();
+  FadeSequence* segment0 = new FadeSequence();
+  FadeSequence* segment1 = new FadeSequence();
+  FadeSequence* segment2 = new FadeSequence();
+  FadeSequence* segment3 = new FadeSequence();
+  FadeSequence* segment4 = new FadeSequence();
+  FadeSequence* segment5 = new FadeSequence();
+  FadeSequence* segment6 = new FadeSequence();
+  FadeSequence* segment7 = new FadeSequence();
+  FadeSequence* segment8 = new FadeSequence();
   
   // Default sequence for lamp
-  segment0.add(red, 5000);
-  segment0.add(blue, 5000);
-  segment0.set_delay(0);
-  lamp_cycle.set_fade_sequence(0, &segment0);
-  segment1.add(red, 5000);
-  segment1.add(blue, 5000);
-  segment1.set_delay(2500);
-  lamp_cycle.set_fade_sequence(1, &segment1);
-  segment2.add(red, 5000);
-  segment2.add(blue, 5000);
-  segment2.set_delay(5000);
-  lamp_cycle.set_fade_sequence(2, &segment2);
-  segment3.add(red, 5000);
-  segment3.add(blue, 5000);
-  segment3.set_delay(7500);
-  lamp_cycle.set_fade_sequence(3, &segment3);
-  segment4.add(red, 5000);
-  segment4.add(blue, 5000);
-  segment4.set_delay(10000);
-  lamp_cycle.set_fade_sequence(4, &segment4);
-  segment5.add(red, 5000);
-  segment5.add(blue, 5000);
-  segment5.set_delay(12500);
-  lamp_cycle.set_fade_sequence(5, &segment5);
-  segment6.add(red, 5000);
-  segment6.add(blue, 5000);
-  segment6.set_delay(15000);
-  lamp_cycle.set_fade_sequence(6, &segment6);
-  segment7.add(red, 5000);
-  segment7.add(blue, 5000);
-  segment7.set_delay(17500);
-  lamp_cycle.set_fade_sequence(7, &segment7);
-  segment8.add(red, 5000);
-  segment8.add(blue, 5000);
-  segment8.set_delay(20000);
-  lamp_cycle.set_fade_sequence(8, &segment8);
-
-  lamp_cycle.start(millis());  
+  segment0->add(red, 5000);
+  segment0->add(blue, 5000);
+  segment0->set_delay(0);
+  lamp_cycle->set_fade_sequence(0, segment0);
+  segment1->add(red, 5000);
+  segment1->add(blue, 5000);
+  segment1->set_delay(2500);
+  lamp_cycle->set_fade_sequence(1, segment1);
+  segment2->add(red, 5000);
+  segment2->add(blue, 5000);
+  segment2->set_delay(5000);
+  lamp_cycle->set_fade_sequence(2, segment2);
+  segment3->add(red, 5000);
+  segment3->add(blue, 5000);
+  segment3->set_delay(7500);
+  lamp_cycle->set_fade_sequence(3, segment3);
+  segment4->add(red, 5000);
+  segment4->add(blue, 5000);
+  segment4->set_delay(10000);
+  lamp_cycle->set_fade_sequence(4, segment4);
+  segment5->add(red, 5000);
+  segment5->add(blue, 5000);
+  segment5->set_delay(12500);
+  lamp_cycle->set_fade_sequence(5, segment5);
+  segment6->add(red, 5000);
+  segment6->add(blue, 5000);
+  segment6->set_delay(15000);
+  lamp_cycle->set_fade_sequence(6, segment6);
+  segment7->add(red, 5000);
+  segment7->add(blue, 5000);
+  segment7->set_delay(17500);
+  lamp_cycle->set_fade_sequence(7, segment7);
+  segment8->add(red, 5000);
+  segment8->add(blue, 5000);
+  segment8->set_delay(20000);
+  lamp_cycle->set_fade_sequence(8, segment8);
+  lamp_cycle->start(millis());
+  
+  fixtures[1] = lamp_cycle;
 }
 
 
 
 void loop() {
-  float percent = 0;
+  FadeState current;
+  float current_percent = 0;
   int ret = 0;
-  Colour current;
+  Colour current_colour;
 
   // Read serial line
   // Decode command
@@ -153,7 +147,7 @@ void loop() {
   int red = 0, green = 0, blue = 0, steps = 0, duration = 0;
   Colour colour;
   if (Serial.available() > 0) {
-    fixture_id = Serial.parseInt(); // Maybe 0, commands sent to the arduino itself
+    fixture_id = Serial.parseInt() - 1; // Maybe 0, commands sent to the arduino itself
     Serial.print("Command for fixture ID: ");
     Serial.print(fixture_id);
     Serial.println("");
@@ -176,11 +170,12 @@ void loop() {
         colour = Colour(red, green, blue);
         
         // Create fade sequence that fades from current colour to specified colour
-        ret = fixtures[fixture_id]->get_current(millis(), current, percent);
+        ret = fixtures[fixture_id]->get_current(millis(), current);
+        current.get_channel(0, current_colour, current_percent);
         
         FadeSequence* new_fadesequence = new FadeSequence();
         new_fadesequence->add(colour, 1000); // Single item in sequence with same from/to, fixed colour
-                new_fadesequence->set_lead_in(current, 1000);
+        new_fadesequence->set_lead_in(current_colour, 1000);
 
         // Free previous fixture_1 Fadeable object
         delete fixtures[fixture_id];
@@ -214,8 +209,9 @@ void loop() {
         }
         
         // Set lead-in fade
-        ret = fixtures[fixture_id]->get_current(millis(), current, percent);
-        new_fadesequence->set_lead_in(current, 1000);
+        ret = fixtures[fixture_id]->get_current(millis(), current);
+        current.get_channel(0, current_colour, current_percent);
+        new_fadesequence->set_lead_in(current_colour, 1000);
         
         // Free previous fixture_1 Fadeable object
         delete fixtures[fixture_id];
@@ -231,47 +227,28 @@ void loop() {
   }
   
   // Update all fixtures
+  for (int i = 0; i < NUM_FIXTURES; i++) {
+    if (fixtures[i] == 0) {
+      continue;
+    }
+    ret = fixtures[i]->get_current(millis(), current);
+    
+    for (int j = 0; j < current.get_num_channels(); j++) {
+      current.get_channel(j, current_colour, current_percent);
+      set_dmx_rgb(fixture_ids[i] + j * 3, current_colour);
+    }
+  }
   
-  // Light bar (fixture 1)
-  ret = fixtures[1]->get_current(millis(), current, percent);
-
   lcd.setCursor(12,0);
   lcd.print(ret);
   
-  set_dmx_rgb(1, current);
   
   lcd.setCursor(12,1);
-  lcd.print(percent);
- 
-  // Lamp
-  ret = lamp_cycle.get_current(0, millis(), current, percent);
-  set_dmx_rgb(4, current);
-  ret = lamp_cycle.get_current(1, millis(), current, percent);
-  set_dmx_rgb(7, current);
-  ret = lamp_cycle.get_current(2, millis(), current, percent);
-  set_dmx_rgb(10, current);
-  ret = lamp_cycle.get_current(3, millis(), current, percent);
-  set_dmx_rgb(13, current);
-  ret = lamp_cycle.get_current(4, millis(), current, percent);
-  set_dmx_rgb(16, current);
-  ret = lamp_cycle.get_current(5, millis(), current, percent);
-  set_dmx_rgb(19, current);
-  ret = lamp_cycle.get_current(6, millis(), current, percent);
-  set_dmx_rgb(22, current);
-  ret = lamp_cycle.get_current(7, millis(), current, percent);
-  set_dmx_rgb(25, current);
-  ret = lamp_cycle.get_current(8, millis(), current, percent);
-  set_dmx_rgb(28, current);
+  lcd.print(current_percent);
 
-  
-  // Get current status of buttons
-  // Update current button - only execute function if status changes
-  // (to None or another button) to avoid multiple presses registering
-  
   lcd.setCursor(7,1);            // move cursor to second line "1" and 9 spaces over
   lcd.print(millis()/1000);      // display seconds elapsed since power-up
 
   lcd.setCursor(0,1);            // move to the begining of the second line
-
 
 }

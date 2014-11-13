@@ -8,6 +8,9 @@
 #define RGBUtils_FadeSequence_Next 20
 #define RGBUtils_MultiFade_Err_IndexInvalid 30
 #define RGBUtils_MultiFade_Err_IndexNotInitialised 31
+#define RGBUtils_CurrentState_Err_Invalid_Channel 40
+
+#define MAX_CHANNELS 10
 
 class Colour {
     public:
@@ -19,13 +22,38 @@ class Colour {
         Colour() : r(0), g(0), b(0) {};
 };
 
+// Returned by Fadeable objects - gives current state of RGB channel(s)
+class FadeState {
+    private:
+        int num_channels;
+        Colour channels[MAX_CHANNELS];
+        float percents[MAX_CHANNELS];
+    public:
+        int get_num_channels();
+        int set_num_channels(int);
+        int get_channel(int, Colour&, float&);
+        int set_channel(int, Colour, float);
+};
+
 class Fadeable {
     public:
         virtual void start(unsigned long) = 0;
-        virtual int get_current(unsigned long, Colour&, float&) = 0;
+        virtual int get_current(unsigned long, FadeState&) = 0;
 };
 
-class Fade: public Fadeable {
+// Represents a DMX lighting fixture
+class Fixture {
+    public:
+        int base_address;
+        Fadeable* sequence;
+
+        Fixture() : base_address(0), sequence(0) {};
+        Fixture(int base_address, Fadeable* sequence) : base_address(base_address),
+            sequence(sequence) {};
+};
+
+// Class used by FadeSequence to represent a Fade step
+class Fade {
     private:
         Colour from;
         bool started;
@@ -63,6 +91,8 @@ class FadeSequence: public Fadeable {
         FadeSequence(const FadeSequence&);
 
         void start(unsigned long);
+        int get_current(unsigned long, FadeState&);
+
         int get_current(unsigned long, Colour&, float&);
 
         // Add another Fade to the end of the sequence
@@ -72,13 +102,15 @@ class FadeSequence: public Fadeable {
         void set_delay(unsigned long);
 };
 
-class MultiFade {
+class MultiFade: public Fadeable {
     private:
         FadeSequence* fade_sequences[MultiFade_MAX];
     public:
         MultiFade() : fade_sequences() {};
 
         void start(unsigned long);
+        int get_current(unsigned long, FadeState&);
+
         int get_current(int, unsigned long, Colour&, float&);
 
         int set_fade_sequence(int, FadeSequence*);

@@ -2,6 +2,39 @@
 
 // TODO fade up from black to full using log scale
 
+int FadeState::get_num_channels() {
+    return num_channels;
+}
+
+int FadeState::set_num_channels(int num) {
+    if (num < MAX_CHANNELS && num > 0) {
+        num_channels = num;
+        return 0;
+    } else {
+        return RGBUtils_CurrentState_Err_Invalid_Channel;
+    }
+}
+
+int FadeState::get_channel(int index, Colour& out, float& percent_out) {
+    if (index < num_channels && index >= 0) {
+        out = channels[index];
+        percent_out = percents[index];
+        return 0;
+    } else {
+        return RGBUtils_CurrentState_Err_Invalid_Channel;
+    }
+}
+
+int FadeState::set_channel(int index, Colour current_colour, float percent_complete) {
+    if (index < num_channels && index >= 0) {
+        channels[index] = current_colour;
+        percents[index] = percent_complete;
+        return 0;
+    } else {
+        return RGBUtils_CurrentState_Err_Invalid_Channel;
+    }
+}
+
 void Fade::start(unsigned long current_time) {
     start_time = current_time;
     started = true;
@@ -65,6 +98,17 @@ int FadeSequence::get_current(unsigned long current_time, Colour& out, float& pe
         current->start(current_time);   // TODO should this be overall start time + some offset?
         return RGBUtils_FadeSequence_Next;
     }
+
+    return 0;
+}
+
+int FadeSequence::get_current(unsigned long current_time, FadeState& out) {
+    float percent;
+    Colour current_colour;
+    get_current(current_time, current_colour, percent);
+
+    out.set_num_channels(1);
+    out.set_channel(0, current_colour, percent);
 
     return 0;
 }
@@ -141,15 +185,30 @@ FadeSequence::FadeSequence(const FadeSequence& other) {
 
 
 void MultiFade::start(unsigned long current_time) {
-    for (int i = 0; i <= MultiFade_MAX; i++) {
+    for (int i = 0; i < MultiFade_MAX; i++) {
         if (fade_sequences[i] != 0) {
             fade_sequences[i]->start(current_time);
         }
     }
 }
 
+int MultiFade::get_current(unsigned long current_time, FadeState& out) {
+    float percent;
+    Colour current;
+
+    out.set_num_channels(MultiFade_MAX);
+    for (int i = 0; i < MultiFade_MAX; i++) {
+        if (fade_sequences[i] != 0) {
+            fade_sequences[i]->get_current(current_time, current, percent);
+            out.set_channel(i, current, percent);
+        } else {
+            out.set_channel(i, Colour(), 0);
+        }
+    }
+}
+
 int MultiFade::get_current(int index, unsigned long current_time, Colour& out, float& percent) {
-    if (index >= 0 && index <= MultiFade_MAX) {
+    if (index >= 0 && index < MultiFade_MAX) {
         if (fade_sequences[index] != 0) {
             return fade_sequences[index]->get_current(current_time, out, percent);
         } else {
@@ -161,7 +220,7 @@ int MultiFade::get_current(int index, unsigned long current_time, Colour& out, f
 }
 
 int MultiFade::set_fade_sequence(int index, FadeSequence* sequence) {
-    if (index >= 0 && index <= MultiFade_MAX) {
+    if (index >= 0 && index < MultiFade_MAX) {
         fade_sequences[index] = sequence;
         return 0;
     } else {
