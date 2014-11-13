@@ -26,7 +26,6 @@ class Fade {
         bool started;
         unsigned long start_time;
         unsigned long duration;
-        Fade* next;
     public:
         // duration is specified in ms (s/1000)
         Fade(Colour from, Colour to, unsigned long duration) :
@@ -35,12 +34,13 @@ class Fade {
         void start(unsigned long);
         int get_current(unsigned long, Colour&, float&);
 
+        Fade* next;
         void set_next(Fade*);
 };
 
 // Sequence of Fades (looped) with a delay/offset to start
 // Automatically move to next Fade in sequence
-// TODO needs copy constructor
+// TODO needs destructor
 class FadeSequence {
     private:
         Fade* first;
@@ -52,18 +52,21 @@ class FadeSequence {
         FadeSequence() : current(0), last(0), delay(0) {};
         FadeSequence(unsigned long delay) : current(0), last(0), delay(delay) {};
 
+        // Copy constructor
+        FadeSequence(const FadeSequence&);
+
         void start(unsigned long);
         int get_current(unsigned long, Colour&, float&);
 
         // Add another fade to the end of this sequence
-        void add(Fade*);
+        void add(const Fade&);
         // Configure delay before sequence starts
         void set_delay(unsigned long);
 };
 
 class MultiFade {
     private:
-        Fade* fade_sequences[MultiFade_MAX];
+        FadeSequence* fade_sequences[MultiFade_MAX];
     public:
         MultiFade() : fade_sequences() {};
 
@@ -71,25 +74,6 @@ class MultiFade {
         int get_current(int, unsigned long, Colour&, float&);
 
         int set_fade_sequence(int, FadeSequence*);
-};
-
-// Fade from one colour to another segment-by-segment
-class NineFade {
-    private:
-        Colour from;
-        Colour to;
-        bool started;
-        unsigned long start_time;
-        unsigned long duration;
-        unsigned long segment_duration;
-    public:
-        NineFade(Colour from, Colour to, unsigned long duration, unsigned long segment_duration) :
-         from(from), to(to), duration(duration), segment_duration(segment_duration), started(false), start_time(0), next(0) {};
-
-        void start(unsigned long);
-        int current(unsigned long, Colour&, Colour&, Colour&, Colour&, Colour&, Colour&, Colour&, Colour&, Colour&, float&);
-
-        NineFade* next;
 };
 
 #endif

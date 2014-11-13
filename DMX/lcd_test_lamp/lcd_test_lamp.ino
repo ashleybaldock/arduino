@@ -49,20 +49,24 @@ MenuItem* current_menu_item;
 
 
 Colour red (255, 0, 0);
+Colour low_red (128, 0, 0);
 Colour blue (0, 0, 255);
+Colour low_blue (0, 0, 128);
 Colour green (0, 255, 0);
+Colour low_green (0, 128, 0);
 Colour yellow (255, 255, 0);
 Colour magenta (255, 0, 255);
 Colour cyan (0, 255, 255);
-Fade red_blue ( red, blue, 60000);
-Fade blue_green ( blue, green, 60000);
-Fade green_red ( green, red, 60000);
+Fade red_blue (red, blue, 60000);
+Fade blue_green (blue, green, 60000);
+Fade green_red (green, red, 60000);
 
-Fade red_blue_quick (red, blue, 5000);
-Fade blue_red_quick (blue, red, 5000);
+Fade red_blue_quick (low_red, low_blue, 5000);
+Fade blue_red_quick (low_blue, low_red, 5000);
 
 FadeSequence slow_colour_cycle;
 
+FadeSequence segment_change;
 
 
 FadeSequence segment0;
@@ -92,51 +96,50 @@ void setup() {
   // Init LCD
   lcd.begin(16, 2);
   lcd.setCursor(0,0);
-  lcd.print("Push the buttons");
   set_backlight_level(0.5);
   
   
-  slow_colour_cycle.add(&red_blue);
-  slow_colour_cycle.add(&blue_green);
-  slow_colour_cycle.add(&green_red);
+  slow_colour_cycle.add(red_blue);
+  slow_colour_cycle.add(blue_green);
+  slow_colour_cycle.add(green_red);
   slow_colour_cycle.start(millis());
   
   
-  segment0.add(&red_blue_quick);
-  segment0.add(&blue_red_quick);
+  segment0.add(red_blue_quick);
+  segment0.add(blue_red_quick);
   segment0.set_delay(0);
   lamp_cycle.set_fade_sequence(0, &segment0);
-  segment1.add(&red_blue_quick);
-  segment1.add(&blue_red_quick);
+  segment1.add(red_blue_quick);
+  segment1.add(blue_red_quick);
   segment1.set_delay(2500);
   lamp_cycle.set_fade_sequence(1, &segment1);
-  segment2.add(&red_blue_quick);
-  segment2.add(&blue_red_quick);
+  segment2.add(red_blue_quick);
+  segment2.add(blue_red_quick);
   segment2.set_delay(5000);
   lamp_cycle.set_fade_sequence(2, &segment2);
-  segment3.add(&red_blue_quick);
-  segment3.add(&blue_red_quick);
+  segment3.add(red_blue_quick);
+  segment3.add(blue_red_quick);
   segment3.set_delay(7500);
   lamp_cycle.set_fade_sequence(3, &segment3);
-  segment4.add(&red_blue_quick);
-  segment4.add(&blue_red_quick);
+  segment4.add(red_blue_quick);
+  segment4.add(blue_red_quick);
   segment4.set_delay(10000);
   lamp_cycle.set_fade_sequence(4, &segment4);
-  segment5.add(&red_blue_quick);
-  segment5.add(&blue_red_quick);
+  segment5.add(red_blue_quick);
+  segment5.add(blue_red_quick);
   segment5.set_delay(12500);
   lamp_cycle.set_fade_sequence(5, &segment5);
-  segment6.add(&red_blue_quick);
-  segment6.add(&blue_red_quick);
-  segment6.set_delay(0);
+  segment6.add(red_blue_quick);
+  segment6.add(blue_red_quick);
+  segment6.set_delay(15000);
   lamp_cycle.set_fade_sequence(6, &segment6);
-  segment7.add(&red_blue_quick);
-  segment7.add(&blue_red_quick);
-  segment7.set_delay(15000);
+  segment7.add(red_blue_quick);
+  segment7.add(blue_red_quick);
+  segment7.set_delay(17500);
   lamp_cycle.set_fade_sequence(7, &segment7);
-  segment8.add(&red_blue_quick);
-  segment8.add(&blue_red_quick);
-  segment8.set_delay(17500);
+  segment8.add(red_blue_quick);
+  segment8.add(blue_red_quick);
+  segment8.set_delay(20000);
   lamp_cycle.set_fade_sequence(8, &segment8);
 
   lamp_cycle.start(millis());  
@@ -145,15 +148,18 @@ void setup() {
 
 void loop() {
   Colour current;
-  float percent;
-  int ret;
+  float percent = 20;
+  int ret = 0;
   
   // Light bar
-  slow_colour_cycle.get_current(millis(), current, percent);
+  ret = slow_colour_cycle.get_current(millis(), current, percent);
+  
+  lcd.setCursor(12,0);
+  lcd.print(ret);
   
   set_dmx_rgb(1, current);
   
-  lcd.setCursor(12,1);            // move cursor to second line "1" and 9 spaces over
+  lcd.setCursor(12,1);
   lcd.print(percent);
   Serial.println(percent);
  

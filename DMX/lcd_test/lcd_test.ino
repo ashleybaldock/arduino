@@ -47,14 +47,21 @@ void set_dmx_rgb(const Colour& colour) {
 
 MenuItem* current_menu_item;
 
-Colour red (64, 0, 0);
-Colour blue (0, 0, 64);
-Fade test_fade1 ( red, blue, 5000);
-Fade test_fade2 ( blue, red, 5000);
+Colour red (255, 0, 0);
+Colour blue (0, 0, 255);
+Colour green (0, 255, 0);
+Colour yellow (255, 255, 0);
+Colour magenta (255, 0, 255);
+Colour cyan (0, 255, 255);
+Fade red_blue ( red, blue, 60000);
+Fade blue_green ( blue, green, 60000);
+Fade green_red ( green, red, 60000);
 
-Fade* current_fade = &test_fade1;
+
+Fade* current_fade = &red_blue;
 
 void setup() {
+  Serial.begin(9600);
   pinMode(RTS_PIN, OUTPUT);
   digitalWrite(RTS_PIN, HIGH);
   
@@ -68,8 +75,12 @@ void setup() {
   lcd.begin(16, 2);
   lcd.setCursor(0,0);
   lcd.print("Push the buttons");
-  set_backlight_level(1.0);
+  set_backlight_level(0.5);
   
+  red_blue.next = &blue_green;
+  blue_green.next =  &green_red;
+  green_red.next = &red_blue;
+
   current_fade->start(millis());
 }
 
@@ -85,13 +96,10 @@ void loop() {
   
   lcd.setCursor(12,1);            // move cursor to second line "1" and 9 spaces over
   lcd.print(percent);
+  Serial.println(percent);
 
   if (ret == RGBUtils_Fade_Completed) {
-    if (current_fade == &test_fade1) {
-      current_fade = &test_fade2;
-    } else {
-      current_fade = &test_fade1;
-    }
+    current_fade = current_fade->next;
     current_fade->start(millis());
   }
   
