@@ -154,19 +154,25 @@ void loop() {
   Colour colour;
   if (Serial.available() > 0) {
     fixture_id = Serial.parseInt(); // Maybe 0, commands sent to the arduino itself
-    Serial.print("Fixture ID: ");
+    Serial.print("Command for fixture ID: ");
     Serial.print(fixture_id);
     Serial.println("");
     command = Serial.parseInt();
+    Serial.print("Command ID: ");
+    Serial.print(command);
     switch (command) {
       case commandFixedColour: {
-        Serial.println("Fixed colour command");
+        Serial.println(" - Fixed colour command");
         red = Serial.parseInt();
+        Serial.print("RGB: (");
         Serial.print(red);
         green = Serial.parseInt();
+        Serial.print(", ");
         Serial.print(green);
         blue = Serial.parseInt();
+        Serial.print(", ");
         Serial.print(blue);
+        Serial.println(")");
         colour = Colour(red, green, blue);
         
         // Create fade sequence that fades from current colour to specified colour
@@ -177,22 +183,33 @@ void loop() {
                 new_fadesequence->set_lead_in(current, 1000);
 
         // Free previous fixture_1 Fadeable object
-        //delete fixtures[fixture_id];
+        delete fixtures[fixture_id];
         fixtures[fixture_id] = new_fadesequence;
         fixtures[fixture_id]->start(millis());
         break;
       }
       case commandFadeSequence: {
-        Serial.println("Fade sequence command");
+        Serial.println(" - Fade sequence command");
         FadeSequence* new_fadesequence = new FadeSequence();
         steps = Serial.parseInt();
         for (int i = 0; i < steps; i++) {
+          Serial.print("Step: ");
+          Serial.print(i);
           red = Serial.parseInt();
+          Serial.print("RGB: (");
+          Serial.print(red);
           green = Serial.parseInt();
+          Serial.print(", ");
+          Serial.print(green);
           blue = Serial.parseInt();
+          Serial.print(", ");
+          Serial.print(blue);
           colour = Colour(red, green, blue);
           duration = Serial.parseInt();
-          
+          Serial.print(") Duration: ");
+          Serial.print(duration);
+          Serial.println("ms");
+
           new_fadesequence->add(colour, duration);
         }
         
@@ -209,7 +226,7 @@ void loop() {
     }
     if (Serial.read() == '\n') {
       // End of line, end of command sequence
-      Serial.println("Got newline");
+      Serial.println("Got newline - end of command");
     }
   }
   
