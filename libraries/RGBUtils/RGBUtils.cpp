@@ -8,6 +8,7 @@ void Fade::start(unsigned long current_time) {
 }
 
 int Fade::get_current(unsigned long current_time, Colour& out, float& percent) {
+    Colour to = next->from;
     // Fade hasn't been started yet, return start colour
     if (!started) {
         out = from;
@@ -46,7 +47,11 @@ void Fade::set_next(Fade* next_fade) {
 
 void FadeSequence::start(unsigned long current_time) {
     started = true;
-    current = first;
+    if (lead_in != 0) {
+        current = lead_in;
+    } else {
+        current = first;
+    }
     current->start(current_time + delay);
 }
 
@@ -64,14 +69,12 @@ int FadeSequence::get_current(unsigned long current_time, Colour& out, float& pe
     return 0;
 }
 
-void FadeSequence::add(const Fade& fade_to_add) {
-    // Alloc a Fade (copy of reference)
-    Fade* fade = new Fade(fade_to_add);
+void FadeSequence::add(const Colour& from, unsigned long duration) {
+    Fade* fade = new Fade(from, duration);
 
     // Link up to existing list
     if (last == 0) {
         first = fade;
-        current = fade;
         last = fade;
         fade->set_next(fade);
     } else {
@@ -79,6 +82,21 @@ void FadeSequence::add(const Fade& fade_to_add) {
         fade->set_next(first);
         last->set_next(fade);
         last = fade;
+    }
+}
+
+void FadeSequence::set_lead_in(const Colour& from, unsigned long duration) {
+    Fade* fade = new Fade(from, duration);
+
+    if (lead_in == 0) {
+        // Set new lead in
+        lead_in = fade;
+        lead_in->set_next(first);
+    } else {
+        // Replace existing lead in
+        delete lead_in;
+        lead_in = fade;
+        lead_in->set_next(first);
     }
 }
 
@@ -114,6 +132,10 @@ FadeSequence::FadeSequence(const FadeSequence& other) {
         last->next = first;
 
         current = first;    // TODO - need to copy this properly based on input value
+    }
+    if (other.lead_in != 0) {
+        lead_in = new Fade(*other.lead_in);
+        lead_in->next = first;
     }
 }
 

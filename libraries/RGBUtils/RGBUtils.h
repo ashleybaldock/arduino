@@ -19,17 +19,22 @@ class Colour {
         Colour() : r(0), g(0), b(0) {};
 };
 
-class Fade {
+class Fadeable {
+    public:
+        virtual void start(unsigned long) = 0;
+        virtual int get_current(unsigned long, Colour&, float&) = 0;
+};
+
+class Fade: public Fadeable {
     private:
         Colour from;
-        Colour to;
         bool started;
         unsigned long start_time;
         unsigned long duration;
     public:
         // duration is specified in ms (s/1000)
-        Fade(Colour from, Colour to, unsigned long duration) :
-         from(from), to(to), duration(duration), started(false), start_time(0), next(0) {};
+        Fade(Colour from, unsigned long duration) :
+         from(from), duration(duration), started(false), start_time(0), next(this) {};
 
         void start(unsigned long);
         int get_current(unsigned long, Colour&, float&);
@@ -41,16 +46,18 @@ class Fade {
 // Sequence of Fades (looped) with a delay/offset to start
 // Automatically move to next Fade in sequence
 // TODO needs destructor
-class FadeSequence {
+class FadeSequence: public Fadeable {
     private:
         Fade* first;
         Fade* current;
         Fade* last;    // For insertion of new elements to linked list
+        Fade* lead_in; // Fade to be executed first before loop is entered into
         bool started;
         unsigned long delay;
     public:
-        FadeSequence() : current(0), last(0), delay(0) {};
-        FadeSequence(unsigned long delay) : current(0), last(0), delay(delay) {};
+        FadeSequence() : first(0), current(0), last(0), delay(0), lead_in(0) {};
+        FadeSequence(unsigned long delay) : first(0), current(0), last(0),
+            delay(delay), lead_in(0) {};
 
         // Copy constructor
         FadeSequence(const FadeSequence&);
@@ -58,8 +65,9 @@ class FadeSequence {
         void start(unsigned long);
         int get_current(unsigned long, Colour&, float&);
 
-        // Add another fade to the end of this sequence
-        void add(const Fade&);
+        // Add another Fade to the end of the sequence
+        void add(const Colour&, unsigned long);
+        void set_lead_in(const Colour&, unsigned long);
         // Configure delay before sequence starts
         void set_delay(unsigned long);
 };
