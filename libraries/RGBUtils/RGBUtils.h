@@ -10,7 +10,11 @@
 #define RGBUtils_MultiFade_Err_IndexNotInitialised 31
 #define RGBUtils_CurrentState_Err_Invalid_Channel 40
 
-#define MAX_CHANNELS 10
+#define MAX_CHANNELS 9
+#define MAX_FADE_STEPS 3
+
+#define Fixture_Single 1
+#define Fixture_Multi  2
 
 class Colour {
     public:
@@ -38,81 +42,78 @@ class FadeState {
 class Fadeable {
     public:
         virtual void start(unsigned long) = 0;
+        virtual void reset() = 0;
         virtual int get_current(unsigned long, FadeState&) = 0;
 };
 
 // Represents a DMX lighting fixture
 class Fixture {
     public:
-        int base_address;
+        int address;
         Fadeable* sequence;
+        int type;
 
-        Fixture() : base_address(0), sequence(0) {};
-        Fixture(int base_address, Fadeable* sequence) : base_address(base_address),
-            sequence(sequence) {};
+        Fixture() : address(0), sequence(0), type(Fixture_Single) {};
+        Fixture(int address, Fadeable* sequence, int type) : address(address), sequence(sequence), type(type) {};
 };
 
-// Class used by FadeSequence to represent a Fade step
 class Fade {
+    friend class FadeSequence;
     private:
         Colour from;
-        bool started;
-        unsigned long start_time;
         unsigned long duration;
+        unsigned long start_time;
     public:
         // duration is specified in ms (s/1000)
-        Fade(Colour from, unsigned long duration) :
-         from(from), duration(duration), started(false), start_time(0), next(this) {};
+        Fade(): duration(0), start_time(0) {};
 
+        void reset();
         void start(unsigned long);
-        int get_current(unsigned long, Colour&, float&);
-
-        Fade* next;
-        void set_next(Fade*);
+        void set(const Colour&, unsigned long);
 };
 
-// Sequence of Fades (looped) with a delay/offset to start
-// Automatically move to next Fade in sequence
+// Fade sequences can be up to MAX_FADE_STEPS long
 class FadeSequence: public Fadeable {
     private:
-        Fade* first;
-        Fade* current;
-        Fade* last;    // For insertion of new elements to linked list
-        Fade* lead_in; // Fade to be executed first before loop is entered into
+        Fade steps[MAX_FADE_STEPS + 1]; // steps[0] is the lead-in fade
         bool started;
         unsigned long delay;
+        unsigned char num_steps;
+        unsigned char current;
+        int get_next_step();
     public:
-        FadeSequence() : first(0), current(0), last(0), delay(0), lead_in(0) {};
-        FadeSequence(unsigned long delay) : first(0), current(0), last(0),
-            delay(delay), lead_in(0) {};
-        FadeSequence(const FadeSequence&);
-        ~FadeSequence();
+        FadeSequence() { reset(); };
 
+        void reset();
         void start(unsigned long);
         int get_current(unsigned long, FadeState&);
-
         int get_current(unsigned long, Colour&, float&);
 
-        // Add another Fade to the end of the sequence
-        void add(const Colour&, unsigned long);
-        void set_lead_in(const Colour&, unsigned long);
-        // Configure delay before sequence starts
-        void set_delay(unsigned long);
+        int set_step(int idx, const Colour&, unsigned long);
+        int set_step_count(int count);
+        int set_lead_in(const Colour&, unsigned long);
+        int set_delay(unsigned long);
+
+        int setup_from_string(); // Set up steps based on string spec (e.g. from serial)
 };
 
-// TODO needs destructor
+
 class MultiFade: public Fadeable {
     private:
-        FadeSequence* fade_sequences[MultiFade_MAX];
+        FadeSequence fade_sequences[MAX_CHANNELS];
+        int num_channels;
     public:
-        MultiFade() : fade_sequences() {};
+        MultiFade() : fade_sequences(), num_channels(9) {};
+        MultiFade(int num_channels) : fade_sequences(), num_channels(num_channels) {};
 
+        void reset();
         void start(unsigned long);
         int get_current(unsigned long, FadeState&);
 
-        int get_current(int, unsigned long, Colour&, float&);
-
-        int set_fade_sequence(int, FadeSequence*);
+        int set_step(int, int, const Colour&, unsigned long);
+        int set_step_count(int, int);
+        int set_lead_in(int, const Colour&, unsigned long);
+        int set_delay(int, unsigned long);
 };
 
 #endif

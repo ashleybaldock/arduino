@@ -7,7 +7,7 @@ int FadeState::get_num_channels() {
 }
 
 int FadeState::set_num_channels(int num) {
-    if (num < MAX_CHANNELS && num > 0) {
+    if (num <= MAX_CHANNELS && num > 0) {
         num_channels = num;
         return 0;
     } else {
@@ -35,13 +35,51 @@ int FadeState::set_channel(int index, Colour current_colour, float percent_compl
     }
 }
 
-void Fade::start(unsigned long current_time) {
-    start_time = current_time;
-    started = true;
+
+void Fade::reset() {
+    start_time = 0;
 }
 
-int Fade::get_current(unsigned long current_time, Colour& out, float& percent) {
-    Colour to = next->from;
+void Fade::start(unsigned long current_time) {
+    start_time = current_time;
+}
+
+void Fade::set(const Colour& colour, unsigned long dur) {
+    reset();
+    from = colour;
+    duration = dur;
+}
+
+
+void FadeSequence::start(unsigned long current_time) {
+    started = true;
+    steps[current].start(current_time + delay);
+}
+
+void FadeSequence::reset() {
+    for (int i = 0; i < num_steps; i++) {
+        steps[i].reset();
+    }
+    started = false;
+    delay = 0;
+    current = 1;    // No lead-in by default
+    num_steps = 0;
+}
+
+int FadeSequence::get_next_step() {
+    int next = current + 1;
+    if (next > num_steps) {
+        return 1;   // 0 is lead-in, which we don't loop to
+    }
+    return next;
+}
+
+int FadeSequence::get_current(unsigned long current_time, Colour& out, float& percent) {
+    Colour from = steps[current].from;
+    Colour to = steps[get_next_step()].from;
+    unsigned long start_time = steps[current].start_time;
+    unsigned long duration = steps[current].duration;
+
     // Fade hasn't been started yet, return start colour
     if (!started) {
         out = from;
@@ -55,7 +93,10 @@ int Fade::get_current(unsigned long current_time, Colour& out, float& percent) {
     // Fade completed, always return end colour
     if (current_time > (start_time + duration)) {
         out = to;
-        return RGBUtils_Fade_Completed;
+        // Start next fade in sequence
+        current = get_next_step();
+        steps[current].start(current_time);
+        return RGBUtils_FadeSequence_Next;
     }
     // Fade in progress, work out current values
     unsigned long time_from_start = current_time - start_time;
@@ -70,137 +111,53 @@ int Fade::get_current(unsigned long current_time, Colour& out, float& percent) {
     out.r = from.r + r_diff * percent_complete;
     out.g = from.g + g_diff * percent_complete;
     out.b = from.b + b_diff * percent_complete;
-    return 0;
-}
-
-void Fade::set_next(Fade* next_fade) {
-    next = next_fade;
-}
-
-
-void FadeSequence::start(unsigned long current_time) {
-    started = true;
-    if (lead_in != 0) {
-        current = lead_in;
-    } else {
-        current = first;
-    }
-    current->start(current_time + delay);
-}
-
-int FadeSequence::get_current(unsigned long current_time, Colour& out, float& percent) {
-    int ret = 0;
-    ret = current->get_current(current_time, out, percent);
-
-    // Move to next fade if current one has been completed
-    if (ret == RGBUtils_Fade_Completed) {
-        current = current->next;
-        current->start(current_time);   // TODO should this be overall start time + some offset?
-        return RGBUtils_FadeSequence_Next;
-    }
 
     return 0;
 }
 
 int FadeSequence::get_current(unsigned long current_time, FadeState& out) {
-    float percent;
     Colour current_colour;
-    get_current(current_time, current_colour, percent);
+    float percent_complete;
+    int ret = get_current(current_time, current_colour, percent_complete);
 
     out.set_num_channels(1);
-    out.set_channel(0, current_colour, percent);
+    out.set_channel(0, current_colour, percent_complete);
 
     return 0;
 }
 
-void FadeSequence::add(const Colour& from, unsigned long duration) {
-    Fade* fade = new Fade(from, duration);
-
-    // Link up to existing list
-    if (last == 0) {
-        first = fade;
-        last = fade;
-        fade->set_next(fade);
-    } else {
-        // Always add at the end of sequence - so first comes next
-        fade->set_next(first);
-        last->set_next(fade);
-        last = fade;
+int FadeSequence::set_step(int idx, const Colour& colour, unsigned long dur) {
+    if (idx + 1 < MAX_FADE_STEPS + 1) {
+        steps[idx + 1].set(colour, dur);
+    }
+}
+int FadeSequence::set_step_count(int count) {
+    if (count < MAX_FADE_STEPS + 1) {
+        num_steps = count;
     }
 }
 
-void FadeSequence::set_lead_in(const Colour& from, unsigned long duration) {
-    Fade* fade = new Fade(from, duration);
-
-    if (lead_in == 0) {
-        // Set new lead in
-        lead_in = fade;
-        lead_in->set_next(first);
-    } else {
-        // Replace existing lead in
-        delete lead_in;
-        lead_in = fade;
-        lead_in->set_next(first);
+int FadeSequence::set_lead_in(const Colour& from, unsigned long duration) {
+    if (!started) {
+        current = 0;
     }
+    steps[0].set(from, duration);
 }
 
-void FadeSequence::set_delay(unsigned long delay_to_set) {
+int FadeSequence::set_delay(unsigned long delay_to_set) {
     delay = delay_to_set;
 }
 
-// Copy constructor
-FadeSequence::FadeSequence(const FadeSequence& other) {
-    // Copy basic params
-    started = other.started;
-    delay = other.delay;
-    // Go through linked list and create new items
-    if (first == 0) {
-        first = 0;
-        current = 0;
-        last = 0;
-    } else {
-        // Create first node
-        first = new Fade(*other.first);
 
-        // Pointer to node currently looking at
-        Fade* c = first;
-        Fade* f = other.first->next;
-        // Until we loop around
-        while (f != other.first) {
-            c->next = new Fade(*f);
-            f = f->next;
-            c = c->next;
-        }
-        // Finish off the loop
-        last = c;
-        last->next = first;
-
-        current = first;    // TODO - need to copy this properly based on input value
-    }
-    if (other.lead_in != 0) {
-        lead_in = new Fade(*other.lead_in);
-        lead_in->next = first;
+void MultiFade::reset() {
+    for (int i = 0; i < num_channels; i++) {
+        fade_sequences[i].reset();
     }
 }
-
-FadeSequence::~FadeSequence() {
-    if (lead_in != 0) {
-        delete lead_in;
-    }
-    last->next = 0;
-    while (first != 0) {
-        Fade* next = first->next;
-        delete first;
-        first = next;
-    }
-}
-
 
 void MultiFade::start(unsigned long current_time) {
-    for (int i = 0; i < MultiFade_MAX; i++) {
-        if (fade_sequences[i] != 0) {
-            fade_sequences[i]->start(current_time);
-        }
+    for (int i = 0; i < num_channels; i++) {
+        fade_sequences[i].start(current_time);
     }
 }
 
@@ -208,33 +165,40 @@ int MultiFade::get_current(unsigned long current_time, FadeState& out) {
     float percent;
     Colour current;
 
-    out.set_num_channels(MultiFade_MAX);
-    for (int i = 0; i < MultiFade_MAX; i++) {
-        if (fade_sequences[i] != 0) {
-            fade_sequences[i]->get_current(current_time, current, percent);
-            out.set_channel(i, current, percent);
-        } else {
-            out.set_channel(i, Colour(), 0);
-        }
+    out.set_num_channels(num_channels);
+    for (int i = 0; i < num_channels; i++) {
+        fade_sequences[i].get_current(current_time, current, percent);
+        out.set_channel(i, current, percent);
     }
 }
 
-int MultiFade::get_current(int index, unsigned long current_time, Colour& out, float& percent) {
-    if (index >= 0 && index < MultiFade_MAX) {
-        if (fade_sequences[index] != 0) {
-            return fade_sequences[index]->get_current(current_time, out, percent);
-        } else {
-            return RGBUtils_MultiFade_Err_IndexNotInitialised;
-        }
+int MultiFade::set_step(int idx, int step_idx, const Colour& colour, unsigned long duration) {
+    if (idx < num_channels) {
+        return fade_sequences[idx].set_step(step_idx, colour, duration);
     } else {
         return RGBUtils_MultiFade_Err_IndexInvalid;
     }
 }
 
-int MultiFade::set_fade_sequence(int index, FadeSequence* sequence) {
-    if (index >= 0 && index < MultiFade_MAX) {
-        fade_sequences[index] = sequence;
-        return 0;
+int MultiFade::set_step_count(int idx, int num_steps) {
+    if (idx < num_channels) {
+        return fade_sequences[idx].set_step_count(num_steps);
+    } else {
+        return RGBUtils_MultiFade_Err_IndexInvalid;
+    }
+}
+
+int MultiFade::set_lead_in(int idx, const Colour& colour, unsigned long duration) {
+    if (idx < num_channels) {
+        return fade_sequences[idx].set_lead_in(colour, duration);
+    } else {
+        return RGBUtils_MultiFade_Err_IndexInvalid;
+    }
+}
+
+int MultiFade::set_delay(int idx, unsigned long delay) {
+    if (idx < num_channels) {
+        return fade_sequences[idx].set_delay(delay);
     } else {
         return RGBUtils_MultiFade_Err_IndexInvalid;
     }

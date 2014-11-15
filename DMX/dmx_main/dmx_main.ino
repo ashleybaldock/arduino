@@ -41,23 +41,22 @@ void set_dmx_rgb(int channel_base, const Colour& colour) {
 }
 
 Colour red (255, 0, 0);
-Colour low_red (128, 0, 0);
 Colour blue (0, 0, 255);
-Colour low_blue (0, 0, 128);
 Colour green (0, 255, 0);
-Colour low_green (0, 128, 0);
 Colour yellow (255, 255, 0);
 Colour magenta (255, 0, 255);
 Colour cyan (0, 255, 255);
 
+// Create and configure fixtures
+FadeSequence fixture1;
+MultiFade fixture2(9);
 
-Fadeable* fixtures[NUM_FIXTURES];
-int fixture_ids[NUM_FIXTURES] = {1, 4};
-
+Fixture fixtures[NUM_FIXTURES] = {Fixture(1, &fixture1, Fixture_Single),
+                                  Fixture(4, &fixture2, Fixture_Multi)};
 
 void setup() {
-  //digitalWrite(lamp_pin, LOW);
-  //pinMode(lamp_pin, INPUT);
+  digitalWrite(lamp_pin, LOW);
+  pinMode(lamp_pin, INPUT);
   
   Serial.begin(9600);
   pinMode(RTS_PIN, OUTPUT);
@@ -75,66 +74,47 @@ void setup() {
   set_backlight_level(0.2);
   
   // Default fade sequence for light bar (fixture 1)
-  FadeSequence* slow_colour_cycle = new FadeSequence();
+  fixture1.set_step_count(3);
+  fixture1.set_step(0, red, 6000);
+  fixture1.set_step(1, blue, 6000);
+  fixture1.set_step(2, green, 6000);
+  fixture1.start(millis());
+  //fixtures[0] = &fixture1;
   
-  slow_colour_cycle->add(red, 60000);
-  slow_colour_cycle->add(blue, 60000);
-  slow_colour_cycle->add(green, 60000);
-  slow_colour_cycle->start(millis());
+  // Default sequence for lamp (fixture 2)
+  for (int i = 0; i < 9; i++) {
+    fixture2.set_step_count(i, 2);
+  }
   
-  fixtures[0] = slow_colour_cycle;
-  
-  MultiFade* lamp_cycle = new MultiFade();
-  FadeSequence* segment0 = new FadeSequence();
-  FadeSequence* segment1 = new FadeSequence();
-  FadeSequence* segment2 = new FadeSequence();
-  FadeSequence* segment3 = new FadeSequence();
-  FadeSequence* segment4 = new FadeSequence();
-  FadeSequence* segment5 = new FadeSequence();
-  FadeSequence* segment6 = new FadeSequence();
-  FadeSequence* segment7 = new FadeSequence();
-  FadeSequence* segment8 = new FadeSequence();
-  
-  // Default sequence for lamp
-  segment0->add(red, 5000);
-  segment0->add(blue, 5000);
-  segment0->set_delay(0);
-  lamp_cycle->set_fade_sequence(0, segment0);
-  segment1->add(red, 5000);
-  segment1->add(blue, 5000);
-  segment1->set_delay(2500);
-  lamp_cycle->set_fade_sequence(1, segment1);
-  segment2->add(red, 5000);
-  segment2->add(blue, 5000);
-  segment2->set_delay(5000);
-  lamp_cycle->set_fade_sequence(2, segment2);
-  segment3->add(red, 5000);
-  segment3->add(blue, 5000);
-  segment3->set_delay(7500);
-  lamp_cycle->set_fade_sequence(3, segment3);
-  segment4->add(red, 5000);
-  segment4->add(blue, 5000);
-  segment4->set_delay(10000);
-  lamp_cycle->set_fade_sequence(4, segment4);
-  segment5->add(red, 5000);
-  segment5->add(blue, 5000);
-  segment5->set_delay(12500);
-  lamp_cycle->set_fade_sequence(5, segment5);
-  segment6->add(red, 5000);
-  segment6->add(blue, 5000);
-  segment6->set_delay(15000);
-  lamp_cycle->set_fade_sequence(6, segment6);
-  segment7->add(red, 5000);
-  segment7->add(blue, 5000);
-  segment7->set_delay(17500);
-  lamp_cycle->set_fade_sequence(7, segment7);
-  segment8->add(red, 5000);
-  segment8->add(blue, 5000);
-  segment8->set_delay(20000);
-  lamp_cycle->set_fade_sequence(8, segment8);
-  lamp_cycle->start(millis());
-  
-  fixtures[1] = lamp_cycle;
+  fixture2.set_step(0, 0, red, 5000);
+  fixture2.set_step(0, 1, blue, 5000);
+  fixture2.set_delay(0, 0);
+  fixture2.set_step(1, 0, red, 5000);
+  fixture2.set_step(1, 1, blue, 5000);
+  fixture2.set_delay(1, 2500);
+  fixture2.set_step(2, 0, red, 5000);
+  fixture2.set_step(2, 1, blue, 5000);
+  fixture2.set_delay(2, 5000);
+  fixture2.set_step(3, 0, red, 5000);
+  fixture2.set_step(3, 1, blue, 5000);
+  fixture2.set_delay(3, 7500);
+  fixture2.set_step(4, 0, red, 5000);
+  fixture2.set_step(4, 1, blue, 5000);
+  fixture2.set_delay(4, 10000);
+  fixture2.set_step(5, 0, red, 5000);
+  fixture2.set_step(5, 1, blue, 5000);
+  fixture2.set_delay(5, 12500);
+  fixture2.set_step(6, 0, red, 5000);
+  fixture2.set_step(6, 1, blue, 5000);
+  fixture2.set_delay(6, 15000);
+  fixture2.set_step(7, 0, red, 5000);
+  fixture2.set_step(7, 1, blue, 5000);
+  fixture2.set_delay(7, 17500);
+  fixture2.set_step(8, 0, red, 5000);
+  fixture2.set_step(8, 1, blue, 5000);
+  fixture2.set_delay(8, 20000);
+  fixture2.start(millis());
+  Serial.println("Startup done");
 }
 
 
@@ -145,7 +125,7 @@ void loop() {
   int ret = 0;
   Colour current_colour;
 
-  lcd.setCursor(0,1);            // move to the begining of the second line
+  lcd.setCursor(0,0);            // move to the begining of the first line
   lcd.print(freeMemory());
 
   // Read serial line
@@ -177,6 +157,10 @@ void loop() {
     switch (command) {
       case commandFixedColour: {
         Serial.println(" - Fixed colour command");
+        // Create fade sequence that fades from current colour to specified colour
+        ret = fixtures[fixture_id].sequence->get_current(millis(), current);
+        current.get_channel(0, current_colour, current_percent);
+
         red = Serial.parseInt();
         Serial.print("RGB: (");
         Serial.print(red);
@@ -189,24 +173,26 @@ void loop() {
         Serial.println(")");
         colour = Colour(red, green, blue);
         
-        // Create fade sequence that fades from current colour to specified colour
-        ret = fixtures[fixture_id]->get_current(millis(), current);
-        current.get_channel(0, current_colour, current_percent);
-        
-        FadeSequence* new_fadesequence = new FadeSequence();
-        new_fadesequence->add(colour, 1000); // Single item in sequence with same from/to, fixed colour
-        new_fadesequence->set_lead_in(current_colour, 1000);
+        FadeSequence* seq = static_cast<FadeSequence*>(fixtures[fixture_id].sequence);
+        seq->reset();
+        seq->set_step_count(1);
+        seq->set_step(0, colour, 1000);
+        seq->set_lead_in(current_colour, 1000);
 
-        // Free previous fixture_1 Fadeable object
-        delete fixtures[fixture_id];
-        fixtures[fixture_id] = new_fadesequence;
-        fixtures[fixture_id]->start(millis());
+        fixtures[fixture_id].sequence->start(millis());
         break;
       }
       case commandFadeSequence: {
         Serial.println(" - Fade sequence command");
-        FadeSequence* new_fadesequence = new FadeSequence();
+        // Create fade sequence that fades from current colour to specified colour
+        ret = fixtures[fixture_id].sequence->get_current(millis(), current);
+        current.get_channel(0, current_colour, current_percent);
+
         steps = Serial.parseInt();
+        FadeSequence* seq = static_cast<FadeSequence*>(fixtures[fixture_id].sequence);
+        seq->reset();
+        seq->set_step_count(steps);
+
         for (int i = 0; i < steps; i++) {
           Serial.print("Step: ");
           Serial.print(i);
@@ -225,18 +211,13 @@ void loop() {
           Serial.print(duration);
           Serial.println("ms");
 
-          new_fadesequence->add(colour, duration);
+          seq->set_step(0, colour, duration);
         }
         
         // Set lead-in fade
-        ret = fixtures[fixture_id]->get_current(millis(), current);
-        current.get_channel(0, current_colour, current_percent);
-        new_fadesequence->set_lead_in(current_colour, 1000);
-        
-        // Free previous fixture_1 Fadeable object
-        delete fixtures[fixture_id];
-        fixtures[fixture_id] = new_fadesequence;
-        fixtures[fixture_id]->start(millis());
+        seq->set_lead_in(current_colour, 1000);
+
+        seq->start(millis());
         break;
       }
       case commandLampTouch: {
@@ -263,21 +244,20 @@ void loop() {
   }
   
   // Update all fixtures
+  // Fixtures may either have a FadeSequence or MultiFade associated with them
   for (int i = 0; i < NUM_FIXTURES; i++) {
-    if (fixtures[i] == 0) {
-      continue;
-    }
-    ret = fixtures[i]->get_current(millis(), current);
+    ret = fixtures[i].sequence->get_current(millis(), current);
     
     for (int j = 0; j < current.get_num_channels(); j++) {
+      Serial.print("loop: i: ");
+      Serial.print(i);
+      Serial.print(", j:");
+      Serial.print(j);
       current.get_channel(j, current_colour, current_percent);
-      set_dmx_rgb(fixture_ids[i] + j * 3, current_colour);
+      set_dmx_rgb(fixtures[i].address + j * 3, current_colour);
     }
   }
 
   lcd.setCursor(7,1);            // move cursor to second line "1" and 9 spaces over
   lcd.print(millis()/1000);      // display seconds elapsed since power-up
-
-  
-
 }
