@@ -183,6 +183,18 @@ FadeSequence::FadeSequence(const FadeSequence& other) {
     }
 }
 
+FadeSequence::~FadeSequence() {
+    if (lead_in != 0) {
+        delete lead_in;
+    }
+    last->next = 0;
+    while (first != 0) {
+        Fade* next = first->next;
+        delete first;
+        first = next;
+    }
+}
+
 
 void MultiFade::start(unsigned long current_time) {
     for (int i = 0; i < MultiFade_MAX; i++) {

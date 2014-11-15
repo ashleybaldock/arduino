@@ -2,6 +2,7 @@
 #include <LiquidCrystal.h>
 #include "RGBUtils.h"
 #include "LightMenu.h"
+#include "MemoryFree.h"
 
 // Values used by DMX
 #define DMX_PIN 2
@@ -11,13 +12,21 @@
 
 int loop_delay = 10;
 
+int lamp_pin_set = 0;
+unsigned long lamp_pin_last_set_time = 0;
+unsigned long lamp_pin_delay = 100;
+
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
 // define some values used by the panel and buttons
 #define backlight_pin 10
 
+#define lamp_pin 11
+
 #define commandFixedColour   1
 #define commandFadeSequence  2
+#define commandMultiFade     3
+#define commandLampTouch     4
 
 // Set backlight level using percentage
 void set_backlight_level(float percentage) {
@@ -47,6 +56,9 @@ int fixture_ids[NUM_FIXTURES] = {1, 4};
 
 
 void setup() {
+  //digitalWrite(lamp_pin, LOW);
+  //pinMode(lamp_pin, INPUT);
+  
   Serial.begin(9600);
   pinMode(RTS_PIN, OUTPUT);
   digitalWrite(RTS_PIN, HIGH);
@@ -133,6 +145,9 @@ void loop() {
   int ret = 0;
   Colour current_colour;
 
+  lcd.setCursor(0,1);            // move to the begining of the second line
+  lcd.print(freeMemory());
+
   // Read serial line
   // Decode command
   // Switch based on command (maybe to set up new fade)
@@ -141,10 +156,15 @@ void loop() {
   //            Fixed Colour (1),R,G,B
   //            Sequence     (2),# of steps (1-255),Step N
   //                                                R,G,B,Duration
+  //            MultiFade    (3),# of sections (9),Section N
+  //                                               Delay,# of steps (1-255),Step N
+  //                                                                        R,G,B,Duration
+  //            LampTouch    (4)
   // e.g. 1,1,255,255,0\n
   
   int fixture_id = 0, command = 0;
-  int red = 0, green = 0, blue = 0, steps = 0, duration = 0;
+  int red = 0, green = 0, blue = 0, steps = 0;
+  unsigned long duration = 0;
   Colour colour;
   if (Serial.available() > 0) {
     fixture_id = Serial.parseInt() - 1; // Maybe 0, commands sent to the arduino itself
@@ -219,10 +239,26 @@ void loop() {
         fixtures[fixture_id]->start(millis());
         break;
       }
+      case commandLampTouch: {
+        Serial.println(" - Lamp Touch command");
+        // Set lamp control pin to grounded output for 500ms
+        pinMode(lamp_pin, OUTPUT);
+        lamp_pin_set = 1;
+        lamp_pin_last_set_time = millis();
+        break;
+      }
     }
     if (Serial.read() == '\n') {
       // End of line, end of command sequence
       Serial.println("Got newline - end of command");
+    }
+  }
+  
+  // Check if lamp control pin should revert to "off" state
+  if (lamp_pin_set == 1) {
+    if (lamp_pin_last_set_time + lamp_pin_delay < millis()) {
+      pinMode(lamp_pin, INPUT);
+      lamp_pin_set = 0;
     }
   }
   
@@ -238,17 +274,10 @@ void loop() {
       set_dmx_rgb(fixture_ids[i] + j * 3, current_colour);
     }
   }
-  
-  lcd.setCursor(12,0);
-  lcd.print(ret);
-  
-  
-  lcd.setCursor(12,1);
-  lcd.print(current_percent);
 
   lcd.setCursor(7,1);            // move cursor to second line "1" and 9 spaces over
   lcd.print(millis()/1000);      // display seconds elapsed since power-up
 
-  lcd.setCursor(0,1);            // move to the begining of the second line
+  
 
 }

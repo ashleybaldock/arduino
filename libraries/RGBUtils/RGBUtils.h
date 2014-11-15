@@ -73,7 +73,6 @@ class Fade {
 
 // Sequence of Fades (looped) with a delay/offset to start
 // Automatically move to next Fade in sequence
-// TODO needs destructor
 class FadeSequence: public Fadeable {
     private:
         Fade* first;
@@ -86,9 +85,8 @@ class FadeSequence: public Fadeable {
         FadeSequence() : first(0), current(0), last(0), delay(0), lead_in(0) {};
         FadeSequence(unsigned long delay) : first(0), current(0), last(0),
             delay(delay), lead_in(0) {};
-
-        // Copy constructor
         FadeSequence(const FadeSequence&);
+        ~FadeSequence();
 
         void start(unsigned long);
         int get_current(unsigned long, FadeState&);
@@ -102,6 +100,7 @@ class FadeSequence: public Fadeable {
         void set_delay(unsigned long);
 };
 
+// TODO needs destructor
 class MultiFade: public Fadeable {
     private:
         FadeSequence* fade_sequences[MultiFade_MAX];
