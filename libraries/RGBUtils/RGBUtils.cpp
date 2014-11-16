@@ -127,12 +127,12 @@ int FadeSequence::get_current(unsigned long current_time, FadeState& out) {
 }
 
 int FadeSequence::set_step(int idx, const Colour& colour, unsigned long dur) {
-    if (idx + 1 < MAX_FADE_STEPS + 1) {
+    if (idx + 1 < num_steps + 1) {
         steps[idx + 1].set(colour, dur);
     }
 }
 int FadeSequence::set_step_count(int count) {
-    if (count < MAX_FADE_STEPS + 1) {
+    if (count < max_steps + 1) {
         num_steps = count;
     }
 }
@@ -169,6 +169,14 @@ int MultiFade::get_current(unsigned long current_time, FadeState& out) {
     for (int i = 0; i < num_channels; i++) {
         fade_sequences[i].get_current(current_time, current, percent);
         out.set_channel(i, current, percent);
+    }
+}
+
+int MultiFade::set_channel_count(unsigned char count) {
+    if (count <= MAX_CHANNELS) {
+        num_channels = count;
+    } else {
+        return RGBUtils_MultiFade_Err_CountExceedsMaxChannels;
     }
 }
 

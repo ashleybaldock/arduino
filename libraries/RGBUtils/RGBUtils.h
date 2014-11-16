@@ -8,10 +8,12 @@
 #define RGBUtils_FadeSequence_Next 20
 #define RGBUtils_MultiFade_Err_IndexInvalid 30
 #define RGBUtils_MultiFade_Err_IndexNotInitialised 31
+#define RGBUtils_MultiFade_Err_CountExceedsMaxChannels 32
 #define RGBUtils_CurrentState_Err_Invalid_Channel 40
 
 #define MAX_CHANNELS 9
-#define MAX_FADE_STEPS 3
+#define MAX_FADE_STEPS 5
+#define MAX_MULTI_FADE_STEPS 3
 
 #define Fixture_Single 1
 #define Fixture_Multi  2
@@ -79,6 +81,7 @@ class FadeSequence: public Fadeable {
         bool started;
         unsigned long delay;
         unsigned char num_steps;
+        const static unsigned char max_steps = MAX_FADE_STEPS;
         unsigned char current;
         int get_next_step();
     public:
@@ -93,23 +96,30 @@ class FadeSequence: public Fadeable {
         int set_step_count(int count);
         int set_lead_in(const Colour&, unsigned long);
         int set_delay(unsigned long);
-
-        int setup_from_string(); // Set up steps based on string spec (e.g. from serial)
 };
 
+// Like FadeSequence but fewer steps (memory constraints)
+class MultiFadeSequence: public FadeSequence {
+    private:
+        Fade steps[MAX_MULTI_FADE_STEPS + 1]; // steps[0] is the lead-in fade
+        const static unsigned char max_steps = MAX_MULTI_FADE_STEPS;
+    public:
+        MultiFadeSequence() { reset(); };
+};
 
 class MultiFade: public Fadeable {
     private:
-        FadeSequence fade_sequences[MAX_CHANNELS];
-        int num_channels;
+        MultiFadeSequence fade_sequences[MAX_CHANNELS];
+        unsigned char num_channels;
     public:
         MultiFade() : fade_sequences(), num_channels(9) {};
-        MultiFade(int num_channels) : fade_sequences(), num_channels(num_channels) {};
+        MultiFade(unsigned char num_channels) : fade_sequences(), num_channels(num_channels) {};
 
         void reset();
         void start(unsigned long);
         int get_current(unsigned long, FadeState&);
 
+        int set_channel_count(unsigned char);
         int set_step(int, int, const Colour&, unsigned long);
         int set_step_count(int, int);
         int set_lead_in(int, const Colour&, unsigned long);

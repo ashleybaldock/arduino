@@ -43,9 +43,6 @@ void set_dmx_rgb(int channel_base, const Colour& colour) {
 Colour red (255, 0, 0);
 Colour blue (0, 0, 255);
 Colour green (0, 255, 0);
-Colour yellow (255, 255, 0);
-Colour magenta (255, 0, 255);
-Colour cyan (0, 255, 255);
 
 // Create and configure fixtures
 FadeSequence fixture1;
@@ -61,7 +58,20 @@ void setup() {
   Serial.begin(9600);
   pinMode(RTS_PIN, OUTPUT);
   digitalWrite(RTS_PIN, HIGH);
-  Serial.println("Startup");
+  Serial.println(F("Startup"));
+  Serial.print(F("Colour: "));
+  Serial.print(sizeof(Colour));
+  Serial.print(F(", Fade: "));
+  Serial.print(sizeof(Fade));
+  Serial.print(F(", FadeSequence: "));
+  Serial.print(sizeof(FadeSequence));
+  Serial.print(F(", MultiFade: "));
+  Serial.print(sizeof(MultiFade));
+  Serial.print(F(", FadeState: "));
+  Serial.print(sizeof(FadeState));
+  Serial.print(F(", Fixture: "));
+  Serial.print(sizeof(Fixture));
+  Serial.println(F(""));
   
   DmxSimple.usePin(DMX_PIN);
   DmxSimple.write(1, 255);
@@ -114,7 +124,7 @@ void setup() {
   fixture2.set_step(8, 1, blue, 5000);
   fixture2.set_delay(8, 20000);
   fixture2.start(millis());
-  Serial.println("Startup done");
+  Serial.println(F("Startup done"));
 }
 
 
@@ -136,7 +146,7 @@ void loop() {
   //            Fixed Colour (1),R,G,B
   //            Sequence     (2),# of steps (1-255),Step N
   //                                                R,G,B,Duration
-  //            MultiFade    (3),# of sections (9),Section N
+  //            MultiFade    (3),# of channels (9),Channel N
   //                                               Delay,# of steps (1-255),Step N
   //                                                                        R,G,B,Duration
   //            LampTouch    (4)
@@ -148,29 +158,25 @@ void loop() {
   Colour colour;
   if (Serial.available() > 0) {
     fixture_id = Serial.parseInt() - 1; // Maybe 0, commands sent to the arduino itself
-    Serial.print("Command for fixture ID: ");
+    Serial.print(F("Command for fixture ID: "));
     Serial.print(fixture_id);
     Serial.println("");
     command = Serial.parseInt();
-    Serial.print("Command ID: ");
+    Serial.print(F("Command ID: "));
     Serial.print(command);
     switch (command) {
       case commandFixedColour: {
-        Serial.println(" - Fixed colour command");
+        Serial.println(F(" - Fixed colour command"));
         // Create fade sequence that fades from current colour to specified colour
         ret = fixtures[fixture_id].sequence->get_current(millis(), current);
         current.get_channel(0, current_colour, current_percent);
 
         red = Serial.parseInt();
-        Serial.print("RGB: (");
-        Serial.print(red);
+        Serial.print(F("RGB: (")); Serial.print(red);
         green = Serial.parseInt();
-        Serial.print(", ");
-        Serial.print(green);
+        Serial.print(F(", ")); Serial.print(green);
         blue = Serial.parseInt();
-        Serial.print(", ");
-        Serial.print(blue);
-        Serial.println(")");
+        Serial.print(F(", ")); Serial.print(blue); Serial.println(F(")"));
         colour = Colour(red, green, blue);
         
         FadeSequence* seq = static_cast<FadeSequence*>(fixtures[fixture_id].sequence);
@@ -180,10 +186,14 @@ void loop() {
         seq->set_lead_in(current_colour, 1000);
 
         fixtures[fixture_id].sequence->start(millis());
+        
+        lcd.setCursor(7,0);            // move to the begining of the first line
+        lcd.print(freeMemory());
+
         break;
       }
       case commandFadeSequence: {
-        Serial.println(" - Fade sequence command");
+        Serial.println(F(" - Fade sequence command"));
         // Create fade sequence that fades from current colour to specified colour
         ret = fixtures[fixture_id].sequence->get_current(millis(), current);
         current.get_channel(0, current_colour, current_percent);
@@ -194,34 +204,76 @@ void loop() {
         seq->set_step_count(steps);
 
         for (int i = 0; i < steps; i++) {
-          Serial.print("Step: ");
-          Serial.print(i);
+          Serial.print(F("Step: ")); Serial.print(i);
           red = Serial.parseInt();
-          Serial.print("RGB: (");
-          Serial.print(red);
+          Serial.print(F("RGB: (")); Serial.print(red);
           green = Serial.parseInt();
-          Serial.print(", ");
-          Serial.print(green);
+          Serial.print(F(", ")); Serial.print(green);
           blue = Serial.parseInt();
-          Serial.print(", ");
-          Serial.print(blue);
+          Serial.print(F(", ")); Serial.print(blue);
           colour = Colour(red, green, blue);
           duration = Serial.parseInt();
-          Serial.print(") Duration: ");
-          Serial.print(duration);
-          Serial.println("ms");
+          Serial.print(F(") Duration: ")); Serial.print(duration); Serial.println(F("ms"));
 
-          seq->set_step(0, colour, duration);
+          seq->set_step(i, colour, duration);
         }
         
         // Set lead-in fade
         seq->set_lead_in(current_colour, 1000);
 
         seq->start(millis());
+        
+        lcd.setCursor(7,0);            // move to the begining of the first line
+        lcd.print(freeMemory());
+
+        break;
+      }
+      case commandMultiFade: {
+        Serial.println(F(" - MultiFade sequence command"));
+        ret = fixtures[fixture_id].sequence->get_current(millis(), current);
+        
+        int channels = Serial.parseInt();
+        MultiFade* seq = static_cast<MultiFade*>(fixtures[fixture_id].sequence);
+        seq->reset();
+        seq->set_channel_count(channels);
+        
+        for (int j = 0; j < channels; j++) {
+          Serial.print(F("Channel: ")); Serial.print(j); Serial.print(F(" (delay: "));
+          int channel_delay = Serial.parseInt();
+          Serial.print(channel_delay); Serial.println(F("ms) "));
+          seq->set_delay(j, channel_delay);
+          
+          steps = Serial.parseInt();
+          seq->set_step_count(j, steps);
+          
+          for (int i = 0; i < steps; i++) {
+            Serial.print(F(" Step: ")); Serial.print(i);
+            red = Serial.parseInt();
+            Serial.print(F("RGB: (")); Serial.print(red);
+            green = Serial.parseInt();
+            Serial.print(F(", ")); Serial.print(green);
+            blue = Serial.parseInt();
+            Serial.print(F(", ")); Serial.print(blue);
+            colour = Colour(red, green, blue);
+            duration = Serial.parseInt();
+            Serial.print(F(") Duration: ")); Serial.print(duration); Serial.println(F("ms"));
+  
+            seq->set_step(j, i, colour, duration);
+          }
+          // Set lead-in fade
+          current.get_channel(j, current_colour, current_percent);
+          seq->set_lead_in(j, current_colour, 1000);
+        }
+        
+        seq->start(millis());
+        
+        lcd.setCursor(7,0);            // move to the begining of the first line
+        lcd.print(freeMemory());
+
         break;
       }
       case commandLampTouch: {
-        Serial.println(" - Lamp Touch command");
+        Serial.println(F(" - Lamp Touch command"));
         // Set lamp control pin to grounded output for 500ms
         pinMode(lamp_pin, OUTPUT);
         lamp_pin_set = 1;
@@ -231,7 +283,7 @@ void loop() {
     }
     if (Serial.read() == '\n') {
       // End of line, end of command sequence
-      Serial.println("Got newline - end of command");
+      Serial.println(F("Got newline - end of command"));
     }
   }
   
@@ -249,10 +301,6 @@ void loop() {
     ret = fixtures[i].sequence->get_current(millis(), current);
     
     for (int j = 0; j < current.get_num_channels(); j++) {
-      Serial.print("loop: i: ");
-      Serial.print(i);
-      Serial.print(", j:");
-      Serial.print(j);
       current.get_channel(j, current_colour, current_percent);
       set_dmx_rgb(fixtures[i].address + j * 3, current_colour);
     }
