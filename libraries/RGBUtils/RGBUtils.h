@@ -1,7 +1,6 @@
 #ifndef RGBUtils_h
 #define RGBUtils_h
 
-#define MultiFade_MAX 9
 #define RGBUtils_Fade_Err_TimeOverflow 1
 #define RGBUtils_Fade_NotStarted 10
 #define RGBUtils_Fade_Completed 11
